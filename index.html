@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>My Board</title>
+
+  <link rel="stylesheet" href="/style.css">
+</head>
+
+<body>
+  <div class="wrap">
+    <header>
+      <div class="logo">KB</div>
+      <h1>My Board</h1>
+      <div class="spacer"></div>
+      <button class="theme-btn" id="themeBtn" title="Toggle theme"></button>
+      <nav id="tabs">
+        <button data-tab="board" class="active">Board</button>
+        <button data-tab="archive">Archive</button>
+        <button data-tab="daily">Daily</button>
+      </nav>
+    </header>
+
+    <main id="app"></main>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

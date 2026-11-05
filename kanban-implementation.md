@@ -4,7 +4,7 @@ Paste this prompt into Claude Code on any system to regenerate the exact same ap
 
 ---
 
-Build a standalone Kanban Board application as a single Python file called `kanban.py`. It must use only Python stdlib (no pip installs) and embed the entire frontend (HTML/CSS/JS) as a raw string inside the Python file.
+Build a standalone Kanban Board application made of four files in one folder: `kanban.py` (the backend server), `index.html` (page markup), `style.css` (all styles) and `app.js` (all frontend logic). The backend must use only Python stdlib (no pip installs) and the frontend must use only vanilla HTML/CSS/JS (no frameworks, no CDN, no build step). The frontend is kept in separate files for maintainability and is NOT embedded in the Python file.
 
 ## Runtime & Architecture
 - Python stdlib only: `http.server`, `json`, `os`, `socketserver`, `threading`, `webbrowser`
@@ -13,9 +13,10 @@ Build a standalone Kanban Board application as a single Python file called `kanb
 - Persist all data to `tasks.json` in the same directory as the script (use `os.path.dirname(os.path.abspath(__file__))`)
 - Silence HTTP request logs (override `log_message(self, *_)` to do nothing)
 - Send `Cache-Control: no-store` and a correct `Content-Length` on every response; POST `/tasks` returns `{"ok": true}` on success and HTTP 400 `{"ok": false}` for a malformed/non-object body
-- The Python file must be organised with section comments (data helpers, embedded frontend, HTTP server) and a `main()` guarded by `if __name__ == "__main__":`
+- The Python file must be organised with section comments (data helpers, frontend files, HTTP server) and a `main()` guarded by `if __name__ == "__main__":`
+- Serve the frontend from disk: a `STATIC_FILES` whitelist maps `/` and `/index.html` → `index.html` (`text/html; charset=utf-8`), `/style.css` → `style.css` (`text/css; charset=utf-8`), `/app.js` → `app.js` (`application/javascript; charset=utf-8`). A `read_static(name)` helper reads the file from `BASE_DIR` on every request, so edits show up on browser refresh without restarting the server. Only whitelisted names are served (no arbitrary path access); if a whitelisted file is missing, respond 404 `Missing file: <name>`
 - Handle Ctrl+C gracefully with a "Goodbye!" message
-- Routes: GET `/` and `/index.html` → HTML page; GET `/tasks` → JSON; POST `/tasks` → save JSON; everything else → 404
+- Routes: GET `/` and `/index.html` → `index.html`; GET `/style.css` → stylesheet; GET `/app.js` → script; GET `/tasks` → JSON; POST `/tasks` → save JSON; everything else → 404
 - JSON persistence: load with `setdefault` for `tasks`, `archived`, `checklist` keys; save with `indent=2`
 
 ## Data Model (tasks.json)
@@ -98,7 +99,7 @@ Three columns side by side: **To Do**, **In Progress**, **Done**.
   - Edit button (inline edit, Enter saves, Escape cancels)
   - Delete button
 - Checked items get green-tinted background + border
-- **Drag-and-drop reordering**: HTML5 drag events (`draggable="true"`, dragstart/dragover/dragleave/drop/dragend). Dragged item fades to 35% opacity; drop target gets a blue top-border indicator. On drop, splice the item from its old index to the new one and save.
+- **Drag-and-drop reordering**: HTML5 drag events (`draggable="true"`, dragstart/dragover/dragleave/drop/dragend). Dragged item fades to 35% opacity; drop target gets a blue top-border indicator. On drop, operate on the order the user actually sees: build the priority-sorted list with a shared `sortedChecklist()` helper (also used by the renderer), splice the dragged item out, set its `priority` to the drop target's priority (the list is grouped by priority, so this makes a cross-group move stick), insert it immediately **before** the drop target (matching the top-border indicator), store that array back as `S.checklist`, and save. Never splice the raw storage order, because it differs from the displayed order. `dragleave` removes the indicator only when the pointer leaves the row itself (`!row.contains(e.relatedTarget)`), to avoid flicker over child elements.
 
 ---
 
@@ -158,13 +159,13 @@ Clicking the edit/pencil button on any item (board card, archive card, or checkl
 - Only Board cards and Daily checklist rows are draggable; Archive cards are not
 - Board drag state reuses the single module-level `dragId` variable shared with the Daily checklist drag-and-drop
 
-## Code Layout & Readability (embedded HTML template)
-The embedded frontend must be human-readable, not minified:
-- Full, properly indented HTML document (`<head>` with `<style>`, `<body>` with the header/nav and `<main id="app">`, then one `<script>`)
-- CSS expanded with one property per line, grouped under comment headers (Theme variables, Base, Header, Board, Inputs, Cards, Priority badges, Action buttons, Archive & Daily views, Checklist, Responsive); short one-line rules are acceptable only for tiny colour/variant groups such as the `.p1`–`.p4` badges and the `.ib.*:hover` tints
-- JavaScript split into labelled sections with comment banners: Icons, State, Helpers, Persistence, Theme, Tabs, Inline editing, Board view, Click handling, Archive view, Daily checklist view, Start
+## Code Layout & Readability (frontend files)
+The frontend lives in three separate, human-readable (not minified) files:
+- `index.html`: a full, properly indented HTML document. `<head>` contains `<meta charset>`, the viewport meta, the title "My Board" and `<link rel="stylesheet" href="/style.css">`; `<body>` contains the header/nav, `<main id="app">` and `<script src="/app.js"></script>` as the last element. No inline `<style>` or `<script>` blocks
+- `style.css`: CSS expanded with one property per line, grouped under comment headers (Theme variables, Base, Header, Board, Inputs, Cards, Priority badges, Action buttons, Archive & Daily views, Checklist, Responsive); short one-line rules are acceptable only for tiny colour/variant groups such as the `.p1`–`.p4` badges and the `.ib.*:hover` tints
+- `app.js`: JavaScript split into labelled sections with comment banners: Icons, State, Helpers, Persistence, Theme, Tabs, Inline editing, Board view, Click handling, Archive view, Daily checklist view, Start
 - Long HTML strings built across several `h += ...` lines (one element per line, indented to mirror nesting); the board card markup lives in its own `taskCardHtml(t, status)` function
 - No line in the file longer than about 110 characters
 - Drag-and-drop wiring for the board lives in `wireBoardDragAndDrop()`, called at the end of `renderBoard()`; a `clearDropHighlights()` helper removes `.drag-over` from all columns
 
-The final file must be runnable with just `python kanban.py` on any system with Python 3.6+, with no installs required.
+All four files must sit in the same folder. The app must be runnable with just `python kanban.py` on any system with Python 3.6+, with no installs required.
